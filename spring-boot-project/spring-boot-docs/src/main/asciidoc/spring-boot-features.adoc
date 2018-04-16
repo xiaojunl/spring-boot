@@ -1135,13 +1135,13 @@ In the preceding example, the following properties names can all be used:
 |===
 | Property | Note
 
-|`acme.my-project.person.firstName`
-|Standard camel case syntax.
-
 |`acme.my-project.person.first-name`
 |Kebab case, which is recommended for use in `.properties` and `.yml` files.
 
-|`acme.my-project.person.first_name`
+|`acme.myProject.person.firstName`
+|Standard camel case syntax.
+
+|`acme.my_project.person.first_name`
 |Underscore notation, which is an alternative format for use in `.properties` and `.yml`
 files.
 
@@ -1202,7 +1202,7 @@ Spring Boot has dedicated support for expressing durations. If you expose a
 available:
 
 * A regular `long` representation (using milliseconds as the default unit unless a
-`@DefaultUnit` has been specified)
+`@DurationUnit` has been specified)
 * The standard ISO-8601 format
 {java-javadoc}/java/time/Duration.html#parse-java.lang.CharSequence-[used by
 `java.util.Duration`]
@@ -1229,11 +1229,11 @@ You can also use any of the supported unit. These are:
 * `h` for hours
 * `d` for days
 
-The default unit is milliseconds and can be overridden using `@DefaultUnit` as illustrated
+The default unit is milliseconds and can be overridden using `@DurationUnit` as illustrated
 in the sample above.
 
 TIP: If you are upgrading from a previous version that is simply using `Long` to express
-the duration, make sure to define the unit (using `@DefaultUnit`) if it isn't
+the duration, make sure to define the unit (using `@DurationUnit`) if it isn't
 milliseconds alongside the switch to `Duration`. Doing so gives a transparent upgrade path
 while supporting a much richer format.
 
@@ -3193,6 +3193,17 @@ In other words, the two configurations in the following example use the Google p
 
 
 
+[[boot-features-security-oauth2-server]]
+==== Server
+Currently, Spring Security does not provide support for implementing an OAuth 2.0
+Authorization Server or Resource Server. However, this functionality is available from
+the https://projects.spring.io/spring-security-oauth/[Spring Security OAuth] project,
+which will eventually be superseded by Spring Security completely. Until then, you can
+use the `spring-security-oauth2-autoconfigure` module to easily set up an OAuth 2.0 server;
+see its https://docs.spring.io/spring-security-oauth2-boot[documentation] for instructions.
+
+
+
 [[boot-features-security-actuator]]
 === Actuator Security
 For security purposes, all actuators other than `/health` and `/info` are disabled by
@@ -3599,7 +3610,7 @@ http://www.h2database.com/html/quickstart.html#h2_console[browser-based console]
 Spring Boot can auto-configure for you. The console is auto-configured when the following
 conditions are met:
 
-* You are developing a web application.
+* You are developing a servlet-based web application.
 * `com.h2database:h2` is on the classpath.
 * You are using <<using-spring-boot.adoc#using-boot-devtools,Spring Boot's developer
 tools>>.
@@ -3722,6 +3733,7 @@ following jOOQ Types:
 * `ConnectionProvider`
 * `TransactionProvider`
 * `RecordMapperProvider`
+* `RecordUnmapperProvider`
 * `RecordListenerProvider`
 * `ExecuteListenerProvider`
 * `VisitListenerProvider`
@@ -5424,7 +5436,7 @@ properties that are not directly supported, use the following properties:
 	spring.kafka.properties.prop.one=first
 	spring.kafka.admin.properties.prop.two=second
 	spring.kafka.consumer.properties.prop.three=third
-	spring,kafka.producer.properties.prop.four=fourth
+	spring.kafka.producer.properties.prop.four=fourth
 ----
 
 This sets the common `prop.one` Kafka property to `first` (applies to producers,
@@ -5436,8 +5448,8 @@ You can also configure the Spring Kafka `JsonDeserializer` as follows:
 [source,properties,indent=0]
 ----
 spring.kafka.consumer.value-deserializer=org.springframework.kafka.support.serializer.JsonDeserializer
-spring.kafka.consumer.properties.spring.json.value.default.type=org.foo.Invoice
-spring.kafka.consumer.properties.spring.json.trusted.packages=org.foo,org.bar
+spring.kafka.consumer.properties.spring.json.value.default.type=com.example.Invoice
+spring.kafka.consumer.properties.spring.json.trusted.packages=com.example,org.acme
 ----
 
 Similarly, you can disable the `JsonSerializer` default behavior of sending type
@@ -5471,7 +5483,7 @@ The following code shows a typical example:
 
 		private final RestTemplate restTemplate;
 
-		public MyBean(RestTemplateBuilder restTemplateBuilder) {
+		public MyService(RestTemplateBuilder restTemplateBuilder) {
 			this.restTemplate = restTemplateBuilder.build();
 		}
 
@@ -5537,7 +5549,7 @@ The following code shows a typical example:
 
 		private final WebClient webClient;
 
-		public MyBean(WebClient.Builder webClientBuilder) {
+		public MyService(WebClient.Builder webClientBuilder) {
 			this.webClient = webClientBuilder.baseUrl("http://example.org").build();
 		}
 
@@ -5864,6 +5876,10 @@ Quartz Scheduler configuration can be customized by using Quartz configuration p
 ()`spring.quartz.properties.*`) and `SchedulerFactoryBeanCustomizer` beans, which allow
 programmatic `SchedulerFactoryBean` customization.
 
+NOTE: In particular, an `Executor` bean is not associated with the scheduler as Quartz
+offers a way to configure the scheduler via `spring.quartz.properties`. If you need
+to customize the task executor, consider implementing `SchedulerFactoryBeanCustomizer`.
+
 Jobs can define setters to inject data map properties. Regular beans can also be injected
 in a similar manner, as shown in the following example:
 
@@ -5987,7 +6003,7 @@ libraries.
 
 [[boot-features-test-scope-dependencies]]
 === Test Scope Dependencies
-The `spring-boot-starter-test` "`Starter`" (in the `test` `scope`)contains
+The `spring-boot-starter-test` "`Starter`" (in the `test` `scope`) contains
 the following provided libraries:
 
 * http://junit.org[JUnit]: The de-facto standard for unit testing Java applications.
@@ -6457,7 +6473,7 @@ definition.
 A list of the auto-configuration settings that are enabled by `@WebMvcTest` can be
 <<appendix-test-auto-configuration#test-auto-configuration,found in the appendix>>.
 
-TIP: Sometimes writing Spring MVC tests is not enough; Spring Boot can help you running
+TIP: Sometimes writing Spring MVC tests is not enough; Spring Boot can help you run
 <<boot-features-testing-spring-boot-applications-testing-with-running-server,
 full end-to-end tests with an actual server>>.
 
@@ -6520,10 +6536,17 @@ example shows a class that uses both `@WebFluxTest` and a `WebTestClient`:
 	}
 ----
 
+TIP: This setup is only supported by WebFlux applications as using `WebTestClient` in a
+mocked web application only works with WebFlux at the moment.
+
 A list of the auto-configuration that is enabled by `@WebFluxTest` can be
 <<appendix-test-auto-configuration#test-auto-configuration,found in the appendix>>.
 
-TIP: Sometimes writing Spring MVC tests is not enough; Spring Boot can help you running
+NOTE: `@WebFluxTest` cannot detect routes registered via the functional web framework. For
+testing `RouterFunction` beans in the context, consider importing your `RouterFunction`
+yourself via `@Import` or using `@SpringBootTest`.
+
+TIP: Sometimes writing Spring WebFlux tests is not enough; Spring Boot can help you run
 <<boot-features-testing-spring-boot-applications-testing-with-running-server,
 full end-to-end tests with an actual server>>.
 
@@ -7141,14 +7164,14 @@ which auto-configures one for you.
 
 
 [[boot-features-environment-test-utilities]]
-==== EnvironmentTestUtils
-`EnvironmentTestUtils` lets you quickly add properties to a
+==== TestPropertyValues
+`TestPropertyValues` lets you quickly add properties to a
 `ConfigurableEnvironment` or `ConfigurableApplicationContext`. You can call it with
 `key=value` strings, as follows:
 
 [source,java,indent=0]
 ----
-	EnvironmentTestUtils.addEnvironment(env, "org=Spring", "name=Boot");
+	TestPropertyValues.of("org=Spring", "name=Boot").applyTo(env);
 ----
 
 
@@ -7660,7 +7683,7 @@ annotated].
 [[boot-features-kotlin-api-runapplication]]
 ==== runApplication
 Spring Boot provides an idiomatic way to run an application with
-`runApplication<FooApplication>(*args)` as shown in the following example:
+`runApplication<MyApplication>(*args)` as shown in the following example:
 
 [source,kotlin,indent=0]
 ----
@@ -7668,20 +7691,20 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 
 @SpringBootApplication
-class FooApplication
+class MyApplication
 
 fun main(args: Array<String>) {
-	runApplication<FooApplication>(*args)
+	runApplication<MyApplication>(*args)
 }
 ----
 
 This is a drop-in replacement for
-`SpringApplication.run(FooApplication::class.java, *args)`. It also allows customization
+`SpringApplication.run(MyApplication::class.java, *args)`. It also allows customization
 of the application as shown in the following example:
 
 [source,kotlin,indent=0]
 ----
-runApplication<FooApplication>(*args) {
+runApplication<MyApplication>(*args) {
 	setBannerMode(OFF)
 }
 ----
@@ -7730,17 +7753,17 @@ constructors are {github-issues}8762[not yet supported].
 @ConfigurationProperties("example.kotlin")
 class KotlinExampleProperties {
 
-	lateinit var foo1: String
+	lateinit var name: String
 
-	lateinit var foo2: String
+	lateinit var description: String
 
-	lateinit val bar = Bar()
+	val myService = MyService()
 
-	class Bar {
+	class MyService {
 
-		lateinit var bar1: String
+		lateinit var apiToken: String
 
-		lateinit var bar2: String
+		lateinit var uri: URI
 
 	}
 

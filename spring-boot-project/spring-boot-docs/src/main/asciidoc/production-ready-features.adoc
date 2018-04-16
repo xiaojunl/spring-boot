@@ -532,10 +532,11 @@ JSON request body. When exposed via JMX, the parameters are mapped to the parame
 the MBean's operations. Parameters are required by default. They can be made optional
 by annotating them with `@org.springframework.lang.Nullable`.
 
-NOTE: To allow the input to be mapped to the operation method's parameters, code
-implementing an endpoint should be compiled with `-parameters`. This will happen
-automatically if you are using Spring Boot's Gradle plugin or if you are using Maven
-and `spring-boot-starter-parent`.
+NOTE: To allow the input to be mapped to the operation method's parameters, Java code
+implementing an endpoint should be compiled with `-parameters`, and Kotlin code
+implementing an endpoint should be compiled with `-java-parameters`. This will happen
+automatically if you are using Spring Boot's Gradle plugin or if you are using Maven and
+`spring-boot-starter-parent`.
 
 
 
@@ -550,7 +551,7 @@ JMX or an HTTP request is converted to the required types using an instance of
 
 [[production-ready-endpoints-custom-web]]
 ==== Custom Web Endpoints
-Operations on a `@Endpoint`, `@WebEndpoint`, or `@WebEndpointExtension` are automatically
+Operations on an `@Endpoint`, `@WebEndpoint`, or `@WebEndpointExtension` are automatically
 exposed over HTTP using Jersey, Spring MVC, or Spring WebFlux.
 
 
@@ -672,7 +673,7 @@ possible.
 ==== Controller endpoints
 `@ControllerEndpoint` and `@RestControllerEndpoint` can be used to implement an endpoint
 that is only exposed by Spring MVC or Spring WebFlux. Methods are mapped using the
-standard annotations Spring MVC and Spring WebFlux annotations such as `@RequestMapping`
+standard annotations for Spring MVC and Spring WebFlux such as `@RequestMapping`
 and `@GetMapping`, with the endpoint's ID being used as a prefix for the path. Controller
 endpoints provide deeper integration with Spring's web frameworks but at the expense of
 portability. The `@Endpoint` and `@WebEndpoint` annotations should be preferred whenever
@@ -1417,7 +1418,7 @@ port to use can be provided using:
 [source,properties,indent=0]
 ----
 	management.metrics.export.ganglia.host=ganglia.example.com
-	management.metrics.export.ganglia.post=9649
+	management.metrics.export.ganglia.port=9649
 ----
 
 
@@ -1431,7 +1432,23 @@ to use can be provided using:
 [source,properties,indent=0]
 ----
 	management.metrics.export.graphite.host=graphite.example.com
-	management.metrics.export.graphite.post=9004
+	management.metrics.export.graphite.port=9004
+----
+
+Micrometer provides a default `HierarchicalNameMapper` that governs how a dimensional
+meter id is {micrometer-registry-documentation}/graphite#_hierarchical_name_mapping[mapped
+to flat hierarchical names].
+
+TIP: To take control over this behaviour, define your `GraphiteMeterRegistry` and supply
+your own `HierarchicalNameMapper`. An auto-configured `GraphiteConfig` and `Clock` beans
+are provided unless you define your own:
+
+[source,java]
+----
+@Bean
+public GraphiteMeterRegistry graphiteMeterRegistry(GraphiteConfig config, Clock clock) {
+	return new GraphiteMeterRegistry(config, clock, MY_HIERARCHICAL_MAPPER);
+}
 ----
 
 
@@ -1453,10 +1470,22 @@ server] to use can be provided using:
 ==== JMX
 Micrometer provides a hierarchical mapping to
 {micrometer-registry-documentation}/jmx[JMX], primarily as a cheap and portable way to
-view metrics locally. Spring Boot provides a default `HierarchicalNameMapper` that governs
-how a dimensional meter id is mapped to flat hierarchical names.
+view metrics locally. Micrometer provides a default `HierarchicalNameMapper` that governs
+how a dimensional meter id is
+{micrometer-registry-documentation}/jmx#_hierarchical_name_mapping[mapped to flat
+hierarchical names].
 
-TIP: To take control over this behaviour, define your own `HierarchicalNameMapper` bean.
+TIP: To take control over this behaviour, define your `JmxMeterRegistry` and supply your
+own `HierarchicalNameMapper`. An auto-configured `JmxConfig` and `Clock` beans are
+provided unless you define your own:
+
+[source,java]
+----
+@Bean
+public JmxMeterRegistry jmxMeterRegistry(JmxConfig config, Clock clock) {
+	return new JmxMeterRegistry(config, clock, MY_HIERARCHICAL_MAPPER);
+}
+----
 
 
 
@@ -1573,12 +1602,12 @@ be provided:
 	management.metrics.export.wavefront.api-token=YOUR_API_TOKEN
 ----
 
-Alternatively, you may use a a Wavefront sidecar or an internal proxy set up in your
+Alternatively, you may use a Wavefront sidecar or an internal proxy set up in your
 environment that forwards metrics data to the Wavefront API host:
 
 [source,properties,indent=0]
 ----
-	management.metrics.export.uri=proxy://localhost:7828
+	management.metrics.export.uri=proxy://localhost:2878
 ----
 
 TIP: If publishing metrics to a Wavefront proxy (as described in
@@ -1658,14 +1687,12 @@ To customize the tags, provide a `@Bean` that implements `WebMvcTagsProvider`.
 [[production-ready-metrics-web-flux]]
 ==== Spring WebFlux Metrics
 Auto-configuration enables the instrumentation of all requests handled by WebFlux
-controllers. You can also use a helper class, `RouterFunctionMetrics`, to instrument
-applications that use WebFlux's functional programming model.
+controllers and functional handlers.
 
 By default, metrics are generated with the name `http.server.requests`. You can customize
 the name by setting the `management.metrics.web.server.requests-metric-name` property.
 
-By default, WebFlux-related metrics for the annotation-based programming model are tagged
-with the following information:
+By default, WebFlux-related metrics are tagged with the following information:
 
 * `method`, the request's method (for example, `GET` or `POST`).
 * `uri`,  the request's URI template prior to variable substitution, if possible (for
@@ -1675,17 +1702,6 @@ example, `/api/person/{id}`).
 request.
 
 To customize the tags, provide a `@Bean` that implements `WebFluxTagsProvider`.
-
-By default, metrics for the functional programming model are tagged with the following
-information:
-
-* `method`, the request's method (for example, `GET` or `POST`).
-* `uri`,  the request's URI template prior to variable substitution, if possible (for
-example, `/api/person/{id}`).
-* `status`, the response's HTTP status code (for example, `200` or `500`).
-
-To customize the tags, use the `defaultTags` method on your `RouterFunctionMetrics`
-instance.
 
 
 
@@ -1737,12 +1753,16 @@ is required. A `CacheMetricsRegistrar` bean is made available to make that proce
 
 [[production-ready-metrics-jdbc]]
 ==== DataSource Metrics
-Auto-configuration enables the instrumentation of all available DataSource` objects with a
-metric named `jdbc`. Data source instrumentation results in gauges representing the
+Auto-configuration enables the instrumentation of all available `DataSource` objects with
+a metric named `jdbc`. Data source instrumentation results in gauges representing the
 currently active, maximum allowed, and minimum allowed connections in the pool. Each of
 these gauges has a name that is prefixed by `jdbc`.
 
 Metrics are also tagged by the name of the `DataSource` computed based on the bean name.
+
+TIP: By default, Spring Boot provides metadata for all supported data sources; you can
+add additional `DataSourcePoolMetadataProvider` beans if your favorite data source isn't
+supported out of the box. See `DataSourcePoolMetadataProvidersConfiguration` for examples.
 
 Also, Hikari-specific metrics are exposed with a `hikaricp` prefix. Each metric is tagged
 by the name of the Pool (can be controlled with `spring.datasource.name`).
@@ -1923,8 +1943,8 @@ PID file, as shown in the following example:
 [indent=0]
 ----
 	org.springframework.context.ApplicationListener=\
-	org.springframework.boot.system.ApplicationPidFileWriter,\
-	org.springframework.boot.system.EmbeddedServerPortFileWriter
+	org.springframework.boot.context.ApplicationPidFileWriter,\
+	org.springframework.boot.web.context.WebServerPortFileWriter
 ----
 
 
@@ -1983,13 +2003,15 @@ services use self-signed certificates, you need to set the following property:
 
 === Custom context path
 
-If the server's context-path has been configured to anything other then `/`, the Cloud Foundry endpoints
-will not be available at the root of the application. For example, if `server.servlet.context-path=/foo`,
-Cloud Foundry endpoints will be available at `/foo/cloudfoundryapplication/*`.
+If the server's context-path has been configured to anything other then `/`, the Cloud
+Foundry endpoints will not be available at the root of the application. For example, if
+`server.servlet.context-path=/app`, Cloud Foundry endpoints will be available at
+`/app/cloudfoundryapplication/*`.
 
-If you expect the Cloud Foundry endpoints to always be available at `/cloudfoundryapplication/*`, regardless of
-the server's context-path, you will need to explicitly configure that in your application. The configuration will differ
-depending on the web server in use. For Tomcat, the following configuration can be added:
+If you expect the Cloud Foundry endpoints to always be available at
+`/cloudfoundryapplication/*`, regardless of the server's context-path, you will need to
+explicitly configure that in your application. The configuration will differ depending on
+the web server in use. For Tomcat, the following configuration can be added:
 
 [source,java,indent=0]
 ----

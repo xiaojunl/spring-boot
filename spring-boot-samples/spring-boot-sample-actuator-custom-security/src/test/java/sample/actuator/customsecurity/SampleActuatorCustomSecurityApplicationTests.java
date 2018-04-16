@@ -82,6 +82,15 @@ public class SampleActuatorCustomSecurityApplicationTests {
 	}
 
 	@Test
+	public void actuatorLinksIsSecure() {
+		ResponseEntity<Object> entity = restTemplate().getForEntity("/actuator",
+				Object.class);
+		assertThat(entity.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+		entity = adminRestTemplate().getForEntity("/actuator", Object.class);
+		assertThat(entity.getStatusCode()).isEqualTo(HttpStatus.OK);
+	}
+
+	@Test
 	public void actuatorSecureEndpointWithAnonymous() {
 		ResponseEntity<Object> entity = restTemplate().getForEntity("/actuator/env",
 				Object.class);
@@ -127,8 +136,8 @@ public class SampleActuatorCustomSecurityApplicationTests {
 
 	@Test
 	public void actuatorExcludedFromEndpointRequestMatcher() {
-		ResponseEntity<Object> entity = userRestTemplate().getForEntity("/actuator/mappings",
-				Object.class);
+		ResponseEntity<Object> entity = userRestTemplate()
+				.getForEntity("/actuator/mappings", Object.class);
 		assertThat(entity.getStatusCode()).isEqualTo(HttpStatus.OK);
 	}
 
